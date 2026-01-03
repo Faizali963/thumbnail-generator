@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thumbnail Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Montserrat:wght@700&family=Poppins:wght@600&family=Roboto:wght@900&family=Oswald:wght@700&family=Inter:wght@800&family=Luckiest+Guy&family=Orbitron:wght@900&family=Bangers&family=Teko:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #0f172a; 
+            color: white; 
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9;
+            background: #1e293b;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 2px solid #334155;
+            margin: 0 auto;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        
+        @media (min-width: 1024px) {
+            .control-panel { height: calc(100vh - 48px); overflow-y: auto; }
+        }
+
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        input[type="range"] {
+            height: 32px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="p-2 md:p-6">
+    <div class="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
+        
+        <!-- Canvas Area -->
+        <div class="flex-1 flex flex-col items-center order-1 lg:order-2">
+            <h1 class="text-xl md:text-2xl font-black mb-4 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent self-start lg:hidden">
+                Thumbnail Generator
+            </h1>
+            
+            <div id="aiStatus" class="mb-2 text-[10px] font-mono text-blue-400 h-4 uppercase tracking-widest"></div>
+            
+            <div class="canvas-wrapper rounded-lg" id="wrapper">
+                <canvas id="mainCanvas" width="1280" height="720"></canvas>
+            </div>
+            
+            <p class="mt-3 text-slate-500 text-[11px] md:text-sm text-center">
+                Tap an element to select and edit. Drag to move.
+            </p>
+        </div>
+
+        <!-- Sidebar Controls -->
+        <div class="lg:w-80 w-full space-y-4 control-panel pr-0 lg:pr-2 order-2 lg:order-1 pb-10">
+            <h1 class="hidden lg:block text-2xl font-black mb-6 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                Thumbnail Generator
+            </h1>
+            
+            <!-- AI Generation -->
+            <section class="bg-slate-800/50 p-4 rounded-xl space-y-3 border border-slate-700">
+                <h2 class="text-xs font-bold text-blue-400 uppercase tracking-tighter flex items-center gap-2">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    AI Background
+                </h2>
+                <div class="flex flex-col gap-2">
+                    <textarea id="aiPrompt" placeholder="Epic sunset landscape..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs focus:ring-2 focus:ring-blue-500 outline-none h-14 resize-none"></textarea>
+                    <button id="generateAiBtn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2">
+                        Generate
+                    </button>
+                </div>
+            </section>
+
+            <!-- Main Title Section -->
+            <section class="bg-slate-800/50 p-4 rounded-xl space-y-3 border border-slate-700">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold text-purple-400 uppercase tracking-tighter">Main Title</h2>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="titleToggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+                
+                <div id="titleControls" class="hidden space-y-4 pt-2 border-t border-slate-700/50">
+                    <input type="text" id="mainTitleText" placeholder="Enter Heading" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[9px] uppercase text-slate-500 font-bold">Size</label>
+                            <input type="number" id="titleSize" value="130" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] uppercase text-slate-500 font-bold">3D Depth</label>
+                            <input type="number" id="titleDepth" value="8" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <div class="flex-1 space-y-1">
+                            <label class="text-[9px] uppercase text-slate-500 font-bold">Gradient</label>
+                            <div class="flex gap-1">
+                                <input type="color" id="titleColor1" value="#f87171" class="w-full h-10 rounded bg-slate-900 border-none p-1">
+                                <input type="color" id="titleColor2" value="#fbbf24" class="w-full h-10 rounded bg-slate-900 border-none p-1">
+                            </div>
+                        </div>
+                    </div>
+                    <button id="resetTitleBtn" class="text-[10px] text-slate-500 hover:text-red-400 font-bold uppercase w-full py-1 text-right">Reset Title Position</button>
+                </div>
+            </section>
+
+            <!-- Elements -->
+            <section class="bg-slate-800/50 p-4 rounded-xl space-y-4 border border-slate-700">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold text-emerald-400 uppercase tracking-tighter">Elements</h2>
+                    <button id="addText" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition">+ Add Text</button>
+                </div>
+
+                <div id="textEditor" class="hidden space-y-3 pt-2 border-t border-slate-700/50">
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="textContent" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm">
+                        <button id="deleteElementBtn" class="bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white p-3 rounded-lg transition" title="Delete Element">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[9px] uppercase text-slate-500 font-bold">Font</label>
+                            <select id="fontFamily" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs">
+                                <option value="Anton">Anton</option>
+                                <option value="Bebas Neue">Bebas</option>
+                                <option value="Luckiest Guy">Cartoon</option>
+                                <option value="Orbitron">Cyber</option>
+                                <option value="Teko">Teko</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] uppercase text-slate-500 font-bold">Color</label>
+                            <input type="color" id="textColor" value="#ffffff" class="w-full h-9 rounded bg-slate-900 border-none p-1">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Global Settings -->
+            <section class="bg-slate-800/50 p-4 rounded-xl space-y-4 border border-slate-700">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-tighter">Adjustments</h2>
+                
+                <label class="block cursor-pointer bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl p-4 text-center hover:border-blue-500 transition">
+                    <span class="text-[10px] text-slate-500 font-bold uppercase">Upload Custom Image</span>
+                    <input type="file" id="bgInput" accept="image/*" class="hidden">
+                </label>
+
+                <div class="space-y-4">
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[10px] uppercase font-bold text-slate-500">
+                            <span>Brightness</span>
+                            <span id="brightnessVal">100%</span>
+                        </div>
+                        <input type="range" id="brightness" min="0" max="200" value="100" class="w-full bg-slate-700 rounded-lg appearance-none">
+                    </div>
+                    
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[10px] uppercase font-bold text-slate-500">
+                            <span>Vibrance</span>
+                            <span id="saturationVal">100%</span>
+                        </div>
+                        <input type="range" id="saturation" min="0" max="200" value="100" class="w-full bg-slate-700 rounded-lg appearance-none">
+                    </div>
+                </div>
+            </section>
+
+            <button id="downloadBtn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-black text-sm shadow-xl transition-all active:scale-95">
+                SAVE THUMBNAIL
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const apiKey = ""; 
+        
+        let elements = [];
+        let backgroundImage = null;
+        let selectedElementIndex = -1; 
+        let isDragging = false;
+        let startX, startY;
+
+        const titleState = {
+            enabled: false,
+            text: 'CRAZY VIDEO!',
+            x: 640,
+            y: 200,
+            size: 130,
+            font: 'Anton',
+            color1: '#f87171',
+            color2: '#fbbf24',
+            depth: 8
+        };
+
+        function drawMainTitle() {
+            if (!titleState.enabled) return;
+            ctx.save();
+            ctx.font = `${titleState.size}px "${titleState.font}"`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for(let i = titleState.depth; i > 0; i--) {
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillText(titleState.text, titleState.x + i, titleState.y + i);
+            }
+
+            const gradient = ctx.createLinearGradient(
+                titleState.x, titleState.y - titleState.size/2,
+                titleState.x, titleState.y + titleState.size/2
+            );
+            gradient.addColorStop(0, titleState.color1);
+            gradient.addColorStop(1, titleState.color2);
+            
+            ctx.fillStyle = gradient;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = titleState.size / 12;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(titleState.text, titleState.x, titleState.y);
+            ctx.fillText(titleState.text, titleState.x, titleState.y);
+
+            if (selectedElementIndex === -2) {
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 4;
+                const m = ctx.measureText(titleState.text);
+                ctx.strokeRect(titleState.x - m.width/2 - 20, titleState.y - titleState.size/2 - 20, m.width + 40, titleState.size + 40);
+            }
+            ctx.restore();
+        }
+
+        function draw() {
+            const brightVal = document.getElementById('brightness')?.value || 100;
+            const saturVal = document.getElementById('saturation')?.value || 100;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.filter = `brightness(${brightVal}%) saturate(${saturVal}%)`;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (backgroundImage) {
+                const aspect = backgroundImage.width / backgroundImage.height;
+                const cAspect = canvas.width / canvas.height;
+                let w, h, x, y;
+                if (aspect > cAspect) { h = canvas.height; w = h * aspect; x = (canvas.width - w) / 2; y = 0; }
+                else { w = canvas.width; h = w / aspect; x = 0; y = (canvas.height - h) / 2; }
+                ctx.drawImage(backgroundImage, x, y, w, h);
+            }
+            ctx.restore();
+
+            drawMainTitle();
+
+            elements.forEach((el, index) => {
+                ctx.save();
+                ctx.font = `${el.size}px "${el.font}"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = el.size / 8;
+                ctx.strokeText(el.text, el.x, el.y);
+                
+                ctx.fillStyle = el.color;
+                ctx.fillText(el.text, el.x, el.y);
+
+                if (index === selectedElementIndex) {
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 4;
+                    const m = ctx.measureText(el.text);
+                    ctx.strokeRect(el.x - m.width/2 - 10, el.y - el.size/2 - 10, m.width + 20, el.size + 20);
+                }
+                ctx.restore();
+            });
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function handleDown(e) {
+            const pos = getPos(e);
+            let hit = false;
+
+            for (let i = elements.length - 1; i >= 0; i--) {
+                const el = elements[i];
+                ctx.font = `${el.size}px "${el.font}"`;
+                const m = ctx.measureText(el.text);
+                if (pos.x > el.x - m.width/2 - 30 && pos.x < el.x + m.width/2 + 30 && pos.y > el.y - el.size/2 - 30 && pos.y < el.y + el.size/2 + 30) {
+                    selectedElementIndex = i; hit = true; isDragging = true;
+                    startX = pos.x - el.x; startY = pos.y - el.y;
+                    break;
+                }
+            }
+
+            if (!hit && titleState.enabled) {
+                ctx.font = `${titleState.size}px "${titleState.font}"`;
+                const m = ctx.measureText(titleState.text);
+                if (pos.x > titleState.x - m.width/2 - 30 && pos.x < titleState.x + m.width/2 + 30 && pos.y > titleState.y - titleState.size/2 - 30 && pos.y < titleState.y + titleState.size/2 + 30) {
+                    selectedElementIndex = -2; hit = true; isDragging = true;
+                    startX = pos.x - titleState.x; startY = pos.y - titleState.y;
+                }
+            }
+
+            if (!hit) selectedElementIndex = -1;
+            updateEditorVisibility();
+            draw();
+        }
+
+        function updateEditorVisibility() {
+            const textEditor = document.getElementById('textEditor');
+            textEditor.classList.toggle('hidden', selectedElementIndex < 0);
+            if (selectedElementIndex >= 0) {
+                document.getElementById('textContent').value = elements[selectedElementIndex].text;
+                document.getElementById('textColor').value = elements[selectedElementIndex].color;
+                document.getElementById('fontFamily').value = elements[selectedElementIndex].font;
+            }
+        }
+
+        function handleMove(e) {
+            if (!isDragging) return;
+            if (e.cancelable) e.preventDefault();
+            const pos = getPos(e);
+            if (selectedElementIndex === -2) {
+                titleState.x = pos.x - startX; titleState.y = pos.y - startY;
+            } else if (selectedElementIndex >= 0) {
+                elements[selectedElementIndex].x = pos.x - startX;
+                elements[selectedElementIndex].y = pos.y - startY;
+            }
+            draw();
+        }
+
+        canvas.addEventListener('mousedown', handleDown);
+        canvas.addEventListener('touchstart', handleDown);
+        window.addEventListener('mousemove', handleMove, { passive: false });
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('touchend', () => isDragging = false);
+
+        document.getElementById('deleteElementBtn').addEventListener('click', () => {
+            if (selectedElementIndex >= 0) {
+                elements.splice(selectedElementIndex, 1);
+                selectedElementIndex = -1;
+                updateEditorVisibility();
+                draw();
+            }
+        });
+
+        document.getElementById('titleToggle').addEventListener('change', (e) => {
+            titleState.enabled = e.target.checked;
+            document.getElementById('titleControls').classList.toggle('hidden', !e.target.checked);
+            draw();
+        });
+
+        document.getElementById('mainTitleText').addEventListener('input', (e) => {
+            titleState.text = e.target.value || ' '; draw();
+        });
+
+        document.getElementById('resetTitleBtn').addEventListener('click', () => {
+            titleState.x = 640; titleState.y = 200; draw();
+        });
+        
+        ['titleSize', 'titleDepth', 'titleColor1', 'titleColor2'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                const key = id.replace('title', '').toLowerCase();
+                titleState[key === 'color1' ? 'color1' : key === 'color2' ? 'color2' : key] = 
+                    id.includes('Size') || id.includes('Depth') ? parseInt(e.target.value) : e.target.value;
+                draw();
+            });
+        });
+
+        document.getElementById('addText').addEventListener('click', () => {
+            elements.push({ text: 'NEW TEXT', x: 640, y: 500, size: 70, color: '#ffffff', font: 'Bebas Neue' });
+            selectedElementIndex = elements.length - 1;
+            updateEditorVisibility();
+            draw();
+        });
+
+        document.getElementById('textContent').addEventListener('input', (e) => {
+            if(selectedElementIndex >= 0) { elements[selectedElementIndex].text = e.target.value; draw(); }
+        });
+
+        document.getElementById('textColor').addEventListener('input', (e) => {
+            if(selectedElementIndex >= 0) { elements[selectedElementIndex].color = e.target.value; draw(); }
+        });
+
+        document.getElementById('fontFamily').addEventListener('change', (e) => {
+            if(selectedElementIndex >= 0) { elements[selectedElementIndex].font = e.target.value; draw(); }
+        });
+
+        document.getElementById('bgInput').addEventListener('change', (e) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => { const img = new Image(); img.onload = () => { backgroundImage = img; draw(); }; img.src = ev.target.result; };
+            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        });
+
+        ['brightness', 'saturation'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                const display = document.getElementById(id + 'Val');
+                if (display) display.innerText = e.target.value + '%';
+                draw();
+            });
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            selectedElementIndex = -1; draw();
+            const link = document.createElement('a');
+            link.download = 'thumbnail.png';
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+        });
+
+        async function generateAi() {
+            const prompt = document.getElementById('aiPrompt').value.trim();
+            if(!prompt) return;
+            const btn = document.getElementById('generateAiBtn');
+            const status = document.getElementById('aiStatus');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader"></div>';
+            status.textContent = "AI GENERATING...";
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instances: [{ prompt }], parameters: { sampleCount: 1 } })
+                });
+                const data = await res.json();
+                const img = new Image();
+                img.onload = () => { backgroundImage = img; draw(); status.textContent = "DONE"; };
+                img.src = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+            } catch (e) {
+                status.textContent = "AI ERROR";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Generate";
+            }
+        }
+        document.getElementById('generateAiBtn').addEventListener('click', generateAi);
+
+        window.onload = () => { draw(); };
+    </script>
+</body>
+</html>
